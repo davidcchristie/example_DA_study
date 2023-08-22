@@ -28,14 +28,12 @@ from user_defined_functions import (
 d_config_particles = {}
 
 # Radius of the initial particle distribution
-d_config_particles["r_min"] = 15
-d_config_particles["r_max"] = 27
-d_config_particles["n_r"] = 4 * 16 * (d_config_particles["r_max"] - d_config_particles["r_min"])
+d_config_particles["r_min"] = 2
+d_config_particles["r_max"] = 10
+d_config_particles["n_r"] = 2 * 16 * (d_config_particles["r_max"] - d_config_particles["r_min"])
 
 # Number of angles for the initial particle distribution
-d_config_particles["n_angles"] = 24
-
-
+d_config_particles["n_angles"] = 5
 
 # Number of split for parallelization
 d_config_particles["n_split"] = 15
@@ -123,8 +121,8 @@ d_config_knobs["on_sep8v"] = 0.000
 d_config_knobs["phi_IR8"] = 180.000
 
 # Octupoles
-d_config_knobs["i_oct_b1"] = 300.0
-d_config_knobs["i_oct_b2"] = 300.0
+d_config_knobs["i_oct_b1"] = 2000.0
+d_config_knobs["i_oct_b2"] = 2000.0
 
 ### leveling configuration
 
@@ -264,7 +262,7 @@ d_config_collider["config_beambeam"] = d_config_beambeam
 d_config_simulation = {}
 
 # Number of turns to track
-d_config_simulation["n_turns"] = 100 #1e6
+d_config_simulation["n_turns"] = 1e6
 
 # Initial off-momentum
 d_config_simulation["delta_max"] = 27.0e-5
@@ -368,7 +366,7 @@ config["root"]["setup_env_script"] = os.getcwd() + "/../activate_miniforge.sh"
 # --- Build tree and write it to the filesystem
 # ==================================================================================================
 # Define study name
-study_name = "testDontRun"
+study_name = "example_tunescan_bb_off_23_09_06"
 
 # Creade folder that will contain the tree
 if not os.path.exists("scans/" + study_name):

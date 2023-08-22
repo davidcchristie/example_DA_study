@@ -1,5 +1,5 @@
 """This script is used to build the base collider with Xmask, configuring only the optics. Functions
-in this script are called sequentially."""
+in this script are called sequentially.  This version puts the particle distribution in a cartesian grid"""
 # ==================================================================================================
 # --- Imports
 # ==================================================================================================
@@ -19,7 +19,6 @@ import tree_maker
 # Import user-defined optics-specific tools
 import optics_specific_tools as ost
 
-print("Running 1_build_distr_and_collider.py")
 
 # ==================================================================================================
 # --- Function for tree_maker tagging
@@ -50,22 +49,24 @@ def load_configuration(config_path="config.yaml"):
 # ==================================================================================================
 # --- Function to build particle distribution and write it to file
 # ==================================================================================================
+
 def build_particle_distribution(config_particles):
-    # Define radius distribution
-    r_min = config_particles["r_min"]
-    r_max = config_particles["r_max"]
-    n_r = config_particles["n_r"]
-    radial_list = np.linspace(r_min, r_max, n_r, endpoint=False)
+    nOuterSquare = int(config_particles["n_x"]/config_particles["delta_x"])
+    linXY = np.linspace(0, config_particles["r_max"], nOuterSquare)
+    [X,Y] = np.meshgrid(linXY, linXY)
+    # make X and Y into 1D arrays
+    X = X.flatten()
+    Y = Y.flatten()
+    R = np.sqrt(X**2 + Y**2)
+    # delete the points with R>= d_config_particles["r_max"] and R<= d_config_particles["r_min"]
+    X = np.delete(X, np.where((R >= config_particles["r_max"]) | (R <= config_particles["r_min"])))
+    Y = np.delete(Y, np.where((R >= config_particles["r_max"]) | (R <= config_particles["r_min"])))
 
-    # Define angle distribution
-    n_angles = config_particles["n_angles"]
-    theta_list = np.linspace(0, 90, n_angles + 2)[1:-1]
 
-    # Define particle distribution as a cartesian product of the above
-    particle_list = [
-        (particle_id, ii[1], ii[0])
-        for particle_id, ii in enumerate(itertools.product(theta_list, radial_list))
-    ]
+    # make a list of tuples
+    particle_list = [(particle_id, ii[0], ii[1]) for particle_id, ii in enumerate(zip(X, Y))]
+
+    # how many particles have R <= r_max and R >= r_min?
 
     # Split distribution into several chunks for parallelization
     n_split = config_particles["n_split"]
@@ -73,7 +74,6 @@ def build_particle_distribution(config_particles):
 
     # Return distribution
     return particle_list
-
 
 def write_particle_distribution(particle_list):
     # Write distribution to parquet files

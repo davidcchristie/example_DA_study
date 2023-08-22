@@ -6,6 +6,8 @@ import yaml
 import pandas as pd
 import time
 import logging
+import numpy as np
+import matplotlib.pyplot as plt
 
 # ==================================================================================================
 # --- Load tree of jobs
@@ -16,7 +18,7 @@ print("Analysis of output simulation files started")
 start = time.time()
 
 # Load Data
-study_name = "no_bb_higher_r" #"example_tunescan_bb_off_23_09_05"
+study_name = "no_bb_higher_r" # "example_tunescan_bb_off_23_09_06"
 fix = "/scans/" + study_name
 root = tree_maker.tree_from_json(fix[1:] + "/tree_maker_" + study_name + ".json")
 # Add suffix to the root node path to handle scans that are not in the root directory
@@ -78,10 +80,6 @@ for node in root.generation(1):
             "num_particles_per_bunch"
         ]
 
-        
-        df_sim["i_oct_b1"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b1"]
-        df_sim["i_oct_b2"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b2"]
-
         # Merge with particle data
         df_sim_with_particle = pd.merge(df_sim, particle, on=["particle_id"])
         l_df_to_merge.append(df_sim_with_particle)
@@ -128,3 +126,85 @@ my_final.to_parquet(f"scans/{study_name}/da.parquet")
 print("Final dataframe for current set of simulations: ", my_final)
 end = time.time()
 print("Elapsed time: ", end - start)
+
+numLostParts = len(df_lost_particles)
+totNumTurns = df_all_sim['at_turn'].max()
+
+
+# Create 2D amplitude x turns grids
+amplitudeList, indsOrig, indsNew = np.unique(df_all_sim['normalized amplitude in xy-plane'], return_inverse=True, return_index=True)
+numUniqueAmps = len(indsOrig)
+numTotalAmps = len(indsNew)
+anglesPerAmp = numTotalAmps // numUniqueAmps
+amplitudesAll = np.array(amplitudeList)
+turnsAll = np.arange(1, totNumTurns + 1)
+numParticlesAmp = np.tile(anglesPerAmp, (numUniqueAmps, totNumTurns))
+
+
+lostPartTurns = df_lost_particles["at_turn"].to_numpy()
+lostPartAmps = df_lost_particles["normalized amplitude in xy-plane"].to_numpy()
+
+
+
+# Populate the grids
+for particleNo in range(1,numLostParts):
+    print(particleNo) 
+    lastTurn = lostPartTurns[particleNo-1]
+    lastAmp = lostPartAmps[particleNo-1]
+    # find the index of the amplitude in the list of amplitudes
+    ampIndx = np.where(amplitudesAll == lastAmp)[0][0]
+    numParticlesAmp[ampIndx, lastTurn:] -= 1
+
+# Flatten out amplitude for turns vs. population
+numParticlesRemainingPerTurn = np.sum(numParticlesAmp, axis=0)
+
+# Final population
+ParticlesReminingFinalTurn = numParticlesAmp[:, -1]
+
+TURNS_ALL, AMPS_ALL = np.meshgrid( turnsAll, amplitudesAll)
+TURNS_ALL[numParticlesAmp < anglesPerAmp] = 0
+AMPS_ALL[numParticlesAmp == anglesPerAmp] = 100
+intactTurnsPerAmp = np.nanmax(TURNS_ALL, axis=1)
+minAmpWithLosses = np.nanmin(AMPS_ALL, axis=0)
+
+downsampleRate = 500
+turnsCoarser = turnsAll[::downsampleRate]
+numParticlesAmpCoarser = numParticlesAmp[:, ::downsampleRate]
+
+
+plt.figure(figsize=(12, 8))
+
+plt.subplot(2, 2, 1)
+plt.plot(turnsAll, numParticlesRemainingPerTurn)
+plt.xlabel('Number of Turns')
+plt.ylabel('Number of Survivors')
+plt.title('Population at each turn')
+
+plt.subplot(2, 2, 2)
+plt.plot(amplitudeList, intactTurnsPerAmp)
+plt.xlabel('Amplitude (\sigma)')
+plt.ylabel('Number of Intact Turns')
+plt.title('Number of turns for each amplitude before any particles are lost')
+
+plt.subplot(2, 2, 3)
+plt.plot(turnsAll, minAmpWithLosses)
+plt.xlabel('Number of Turns')
+plt.ylabel('Min Amplitude of Losses (\sigma)')
+plt.ylim(7, 25)
+plt.title('Amplitude Thresholds')
+DA = minAmpWithLosses.min()
+indxDA = np.argmin(minAmpWithLosses)
+plt.plot(turnsAll[indxDA], DA, 'r*')
+plt.text(turnsAll[indxDA], DA, f'DA = {DA}', horizontalalignment='center', verticalalignment='top')
+
+plt.subplot(2, 2, 4)
+AMPS, TURNS = np.meshgrid(amplitudeList, turnsCoarser)
+P = plt.pcolor(TURNS, AMPS, numParticlesAmpCoarser.transpose(), shading='auto')
+plt.xlabel('Number of Turns')
+plt.ylabel('Amplitude (\sigma)')
+C = plt.colorbar(P)
+C.set_label("Num. Surviving Particles")
+plt.title('Particle Survival')
+
+plt.tight_layout()
+plt.show()

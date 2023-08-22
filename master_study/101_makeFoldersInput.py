@@ -27,13 +27,58 @@ from user_defined_functions import (
 # Define dictionary for the initial particle distribution
 d_config_particles = {}
 
-# Radius of the initial particle distribution
-d_config_particles["r_min"] = 15
-d_config_particles["r_max"] = 27
-d_config_particles["n_r"] = 4 * 16 * (d_config_particles["r_max"] - d_config_particles["r_min"])
+# # Radius of the initial particle distribution
+# d_config_particles["r_min"] = 15
+# d_config_particles["r_max"] = 27
+# d_config_particles["n_r"] = 4 * 16 * (d_config_particles["r_max"] - d_config_particles["r_min"])
 
-# Number of angles for the initial particle distribution
-d_config_particles["n_angles"] = 24
+# # Number of angles for the initial particle distribution
+# d_config_particles["n_angles"] = 24
+
+
+# Ask user for study name (string)
+study_name = input("Please enter the name of the study: ")
+# read the text file "902_chronjobTemplate.py", replace the string "$STUDY_NAME" with the actual study name, and save it as "002_chronjob[study name].py"
+with open("902_chronjobTemplate.py", "r") as file:
+    filedata = file.read()
+filedata = filedata.replace("$STUDY_NAME", study_name)
+with open(f"902_chronjob{study_name}.py", "w") as file:
+    file.write(filedata)
+
+# Ask user to choose "Cartesian [c]" or "Polar [p]" coordinates
+bool_inp = input("Do you want to use Cartesian [c] or Polar [p] based distributions? (c/p): ")
+isCartesian = bool_inp == "c"
+
+needUserInput = True
+
+while needUserInput:
+    # input r_min and r_max
+    d_config_particles["r_min"] = float(input("Please enter r_min: "))
+    d_config_particles["r_max"] = float(input("Please enter r_max: "))
+
+    if isCartesian:
+        d_config_particles["n_x"] = int(input("Please enter number of x points between min and max: "))
+        d_config_particles["delta_x"] = (d_config_particles["r_max"] - d_config_particles["r_min"])/d_config_particles["n_x"]
+        nOuterSquare = int(d_config_particles["n_x"]/d_config_particles["delta_x"])
+        linXY = np.linspace(0, d_config_particles["r_max"], nOuterSquare)
+        [X,Y] = np.meshgrid(linXY, linXY)
+        R = np.sqrt(X**2 + Y**2)
+        # how many particles have R <= r_max and R >= r_min?
+        nParticles = np.sum((R <= d_config_particles["r_max"]) & (R >= d_config_particles["r_min"]))
+        print("number of particles = ", nParticles)
+        # ask user whether this is OK
+        bool_inp = input("Is this OK? (y/n): ")
+        needUserInput = bool_inp == "n"
+        
+    else:
+        d_config_particles["n_r"] = int(input("Please enter number of r points between min and max: "))
+        d_config_particles["n_angles"] = int(input("Please enter number of angles: "))
+        nParticles = d_config_particles["n_r"] * d_config_particles["n_angles"]
+        print("number of particles = ", nParticles)
+        # ask user whether this is OK
+        bool_inp = input("Is this OK? (y/n): ")
+        needUserInput = bool_inp == "n"
+
 
 
 
@@ -264,7 +309,20 @@ d_config_collider["config_beambeam"] = d_config_beambeam
 d_config_simulation = {}
 
 # Number of turns to track
-d_config_simulation["n_turns"] = 100 #1e6
+# d_config_simulation["n_turns"] = 100 #1e6
+# Input number of turns to track
+while True:
+    n_turns = input("Enter the number of turns (default is 1e6): ")
+
+    if not n_turns:
+        d_config_simulation["n_turns"]  = int(1e6)
+        break
+
+    try:
+        d_config_simulation["n_turns"]  = int(n_turns)
+        break
+    except ValueError:
+        print("Invalid input. Please enter an integer.")
 
 # Initial off-momentum
 d_config_simulation["delta_max"] = 27.0e-5
@@ -356,7 +414,15 @@ for idx_job, (track, qx, qy) in enumerate(itertools.product(track_array, array_q
 # --- Simulation configuration
 # ==================================================================================================
 # Load the tree_maker simulation configuration
-config = yaml.safe_load(open("config.yaml"))
+# config = yaml.safe_load(open("config.yaml"))
+
+
+# Load the tree_maker simulation configuration
+if isCartesian:
+    config = yaml.safe_load(open("configCart.yaml"))
+else:
+    config = yaml.safe_load(open("config.yaml"))
+
 
 # # Set the root children to the ones defined above
 config["root"]["children"] = children
@@ -368,7 +434,7 @@ config["root"]["setup_env_script"] = os.getcwd() + "/../activate_miniforge.sh"
 # --- Build tree and write it to the filesystem
 # ==================================================================================================
 # Define study name
-study_name = "testDontRun"
+# study_name = "testDontRun"
 
 # Creade folder that will contain the tree
 if not os.path.exists("scans/" + study_name):
@@ -392,3 +458,5 @@ print("--- %s seconds ---" % (time.time() - start_time))
 # Rename log files according to study
 shutil.move("tree_maker.json", f"tree_maker_{study_name}.json")
 shutil.move("tree_maker.log", f"tree_maker_{study_name}.log")
+
+

@@ -1,0 +1,18 @@
+"root":
+  setup_env_script: "none"
+  generations:
+    1: # Build the particle distribution and base collider
+      job_folder: "../../master_jobs/1_build_distr_and_collider"
+      job_executable: 1_build_distr_and_colliderCartesian.py # has to be a python file
+      files_to_clone: # relative to the template folder
+        - optics_specific_tools.py
+      run_on: "local_pc"
+    2: # Launch the pymask and prepare the colliders
+      job_folder: "../../master_jobs/2_configure_and_track"
+      job_executable: 2_configure_and_track.py # has to be a python file
+      files_to_clone:
+        - misc.py
+      run_on: local_pc #'htc_docker' #'htc' #'slurm'
+      htc_job_flavor: "tomorrow" # optional parameter to define job flavor, default is espresso
+  # Children will be added below in the script 001_make_folders.py
+  children:

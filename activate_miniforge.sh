@@ -1,7 +1,7 @@
 # Get current directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# Get if docker miniconda exists
+# Get if we're located in a docker and miniforge exists
 FILE=/usr/local/DA_study/miniforge_docker/bin/activate
 
 # Check if  the job is launched from docker

@@ -1,0 +1,10 @@
+running: []
+queuing: []
+/home/dachrist/example_DA_study/master_study/scans/example_tunescan_bb_off/base_collider is completed.
+bash submission_files/first_generation.sub
+running: []
+queuing: []
+bash submission_files/second_generation.sub
+running: []
+queuing: []
+bash submission_files/first_generation.sub

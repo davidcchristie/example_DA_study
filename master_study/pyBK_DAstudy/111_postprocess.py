@@ -6,6 +6,8 @@ import yaml
 import pandas as pd
 import time
 import logging
+import numpy as np
+import matplotlib.pyplot as plt
 
 # ==================================================================================================
 # --- Load tree of jobs
@@ -16,7 +18,7 @@ print("Analysis of output simulation files started")
 start = time.time()
 
 # Load Data
-study_name = "no_bb_higher_r" #"example_tunescan_bb_off_23_09_05"
+# study_name = "no_bb_higher_r" # "example_tunescan_bb_off_23_09_06"
 fix = "/scans/" + study_name
 root = tree_maker.tree_from_json(fix[1:] + "/tree_maker_" + study_name + ".json")
 # Add suffix to the root node path to handle scans that are not in the root directory
@@ -78,10 +80,6 @@ for node in root.generation(1):
             "num_particles_per_bunch"
         ]
 
-        
-        df_sim["i_oct_b1"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b1"]
-        df_sim["i_oct_b2"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b2"]
-
         # Merge with particle data
         df_sim_with_particle = pd.merge(df_sim, particle, on=["particle_id"])
         l_df_to_merge.append(df_sim_with_particle)
@@ -124,7 +122,93 @@ my_final = pd.DataFrame(
 ).transpose()
 
 # Save data and print time
-my_final.to_parquet(f"scans/{study_name}/da.parquet")
-print("Final dataframe for current set of simulations: ", my_final)
-end = time.time()
-print("Elapsed time: ", end - start)
+# my_final.to_parquet(f"scans/{study_name}/da.parquet")
+# print("Final dataframe for current set of simulations: ", my_final)
+# end = time.time()
+# print("Elapsed time: ", end - start)
+
+numLostParts = len(df_lost_particles)
+totNumTurns = df_all_sim['at_turn'].max()
+
+
+# Create 2D amplitude x turns grids
+amplitudeList, indsOrig, indsNew = np.unique(df_all_sim['normalized amplitude in xy-plane'], return_inverse=True, return_index=True)
+
+numUniqueAmps = len(indsOrig)
+numTotalAmps = len(indsNew)
+anglesPerAmp = numTotalAmps // numUniqueAmps
+amplitudesAll = np.array(amplitudeList)
+# sort amplitudesAll in ascending order
+amplitudesAll = np.sort(amplitudesAll)
+
+turnsAll = np.arange(1, totNumTurns + 1)
+numParticlesAmp = np.tile(anglesPerAmp, (numUniqueAmps, totNumTurns))
+
+
+lostPartTurns = df_lost_particles["at_turn"].to_numpy()
+lostPartAmps = df_lost_particles["normalized amplitude in xy-plane"].to_numpy()
+lostPartAngles = df_lost_particles["angle in xy-plane [deg]"].to_numpy()
+
+# create 2D amplitude x turns (sparse) grids
+# amplitudesAll = np.unique(df_all_sim['normalized amplitude in xy-plane'])
+turnsAllUnique = np.unique(df_all_sim['at_turn'])
+# sort turnsAllUnique in ascending order
+turnsAllUnique = np.sort(turnsAllUnique)
+
+anglesUnique = np.unique(df_all_sim['angle in xy-plane [deg]'])
+# sort anglesUnique in ascending order
+anglesUnique = np.sort(anglesUnique)
+
+
+# create a grid of NANs with dimensions: length(turnsAllUnique) x length(amplitudesAll) x length(anglesUnique)
+
+surviveParticlesAmpAngle = np.ones((len(turnsAllUnique), len(amplitudesAll), len(anglesUnique)))
+
+
+
+
+
+# Populate the grids
+for particleNo in range(1,numLostParts):
+    # print(particleNo) 
+    thetaP = lostPartAngles[particleNo-1]
+    thetaIndx = np.where(anglesUnique == thetaP)[0][0]
+
+
+    lastTurn = lostPartTurns[particleNo-1]
+    lastTurnIndx = np.where(turnsAllUnique == lastTurn)[0][0]
+
+    lastAmp = lostPartAmps[particleNo-1]
+
+    # find the index of the amplitude in the list of amplitudes
+    ampIndx = np.where(amplitudesAll == lastAmp)[0][0]
+
+    if lastTurnIndx == 2:
+        print(lastTurnIndx)
+        print(thetaIndx)
+        print(ampIndx)
+        print(particleNo)
+
+
+    numParticlesAmp[ampIndx, lastTurn:] -= 1
+    surviveParticlesAmpAngle[lastTurnIndx:, ampIndx, thetaIndx] = 0
+    # NN[lastTurnIndx:, ampIndx, thetaIndx] = np.nan
+    # RR[lastTurnIndx:, ampIndx, thetaIndx] = np.nan
+    # TT[lastTurnIndx:, ampIndx, thetaIndx] = np.nan
+
+# Flatten out amplitude for turns vs. population
+numParticlesRemainingPerTurn = np.sum(numParticlesAmp, axis=0)
+
+# Final population
+ParticlesReminingFinalTurn = numParticlesAmp[:, -1]
+
+TURNS_ALL, AMPS_ALL = np.meshgrid( turnsAll, amplitudesAll)
+TURNS_ALL[numParticlesAmp < anglesPerAmp] = 0
+AMPS_ALL[numParticlesAmp == anglesPerAmp] = 100
+intactTurnsPerAmp = np.nanmax(TURNS_ALL, axis=1)
+minAmpWithLosses = np.nanmin(AMPS_ALL, axis=0)
+
+downsampleRate = 500
+turnsCoarser = turnsAll[::downsampleRate]
+numParticlesAmpCoarser = numParticlesAmp[:, ::downsampleRate]
+

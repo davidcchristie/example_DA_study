@@ -16,7 +16,7 @@ print("Analysis of output simulation files started")
 start = time.time()
 
 # Load Data
-study_name = "no_bb_higher_r" #"example_tunescan_bb_off_23_09_05"
+# study_name = "example_tunescan_bb_off_23_09_05"
 fix = "/scans/" + study_name
 root = tree_maker.tree_from_json(fix[1:] + "/tree_maker_" + study_name + ".json")
 # Add suffix to the root node path to handle scans that are not in the root directory
@@ -78,10 +78,6 @@ for node in root.generation(1):
             "num_particles_per_bunch"
         ]
 
-        
-        df_sim["i_oct_b1"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b1"]
-        df_sim["i_oct_b2"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b2"]
-
         # Merge with particle data
         df_sim_with_particle = pd.merge(df_sim, particle, on=["particle_id"])
         l_df_to_merge.append(df_sim_with_particle)
@@ -128,3 +124,13 @@ my_final.to_parquet(f"scans/{study_name}/da.parquet")
 print("Final dataframe for current set of simulations: ", my_final)
 end = time.time()
 print("Elapsed time: ", end - start)
+
+
+# write df_lost_particles to pickle
+df_lost_particles.to_pickle(f"scans/{study_name}/df_lost_particles.pkl")
+
+# write df_all_sim to pickle
+df_all_sim.to_pickle(f"scans/{study_name}/df_all_sim.pkl")
+
+
+

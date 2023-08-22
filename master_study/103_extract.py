@@ -16,13 +16,13 @@ print("Analysis of output simulation files started")
 start = time.time()
 
 # Load Data
-study_name = "no_bb_higher_r" #"example_tunescan_bb_off_23_09_05"
+study_name = "example_tunescan_bb_off_23_09_05"
 fix = "/scans/" + study_name
 root = tree_maker.tree_from_json(fix[1:] + "/tree_maker_" + study_name + ".json")
 # Add suffix to the root node path to handle scans that are not in the root directory
 root.add_suffix(suffix=fix)
 
-
+###################################################################################################
 # ==================================================================================================
 # --- # Browse simulations folder and extract relevant observables
 # ==================================================================================================
@@ -77,8 +77,6 @@ for node in root.generation(1):
         df_sim["num_particles_per_bunch"] = dic_child_collider["config_beambeam"][
             "num_particles_per_bunch"
         ]
-
-        
         df_sim["i_oct_b1"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b1"]
         df_sim["i_oct_b2"] = dic_child_collider["config_knobs_and_tuning"]["knob_settings"]["i_oct_b2"]
 
@@ -113,6 +111,8 @@ l_parameters_to_keep = [
     "i_bunch_b1",
     "i_bunch_b2",
     "num_particles_per_bunch",
+    "i_oct_b1",
+    "i_oct_b2",
 ]
 
 # Min is computed in the groupby function, but values should be identical
@@ -126,5 +126,20 @@ my_final = pd.DataFrame(
 # Save data and print time
 my_final.to_parquet(f"scans/{study_name}/da.parquet")
 print("Final dataframe for current set of simulations: ", my_final)
+end = time.time()
+print("Elapsed time: ", end - start)
+
+
+# Min is computed in the groupby function, but values should be identical
+my_full = pd.DataFrame(
+    [
+        df_all_sim.groupby(group_by_parameters)[parameter].min()
+        for parameter in l_parameters_to_keep
+    ]
+).transpose()
+
+# Save data and print time
+my_full.to_parquet(f"scans/{study_name}/allParts.parquet")
+print("Final dataframe for current set of simulations: ", my_full)
 end = time.time()
 print("Elapsed time: ", end - start)
